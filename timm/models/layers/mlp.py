@@ -18,6 +18,7 @@ class Mlp(nn.Module):
         self.drop = nn.Dropout(drop)
 
     def forward(self, x):
+        # 全连接层，GELU层，drop层，全连接层，drop层
         x = self.fc1(x)
         x = self.act(x)
         x = self.drop(x)

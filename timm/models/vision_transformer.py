@@ -195,18 +195,36 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
+        """维度的转换是为了方便后面的运算"""
         # 我们传入的维度，[batch_size, num_patch + 1 ，total_embed_dim]  nub_patch =14*14=196, embed_dim=768(就是把一小块图像拉伸成一个向量的)
         # num_patch 要加一，是为了一个输出结果。
         B, N, C = x.shape
+        # 首先经过一个qkv层，也就是一个线性层，之后，对维度进行reshape,
+        # B和N不发生变化，后面的C，转变为3代表q，k，v三个参数，head的数目，C=768，768/head,展开成5个维度的tensor，并且把里面的位置调换了一下
+        # 之前的维度是[B,N,C]
+        # 现在的维度是[B,N,3,head,dim_per_head]
+        # 维度调整 [3,B,head,N,dim_per_head]
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        # 然后对这一个tensor进行切分，之后这个q,k,v的形状就为[B,head,N,dim_per_head],
+        # 这个切分，是整个切分，把第一个维度3进行切分，切分成q,k,v,把其他维度[B,head,N,dim_per_head]当作一个整体来看待
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
 
+        # 下面就是计算注意力得分，
+        # q的维度是[B,head,N,dim_per_head]，k的维度先进行交换，并将后面两个进行交换，k的维度变成[B,head,dim_per_head,N]
+        # q:[B,head,N,dim_per_head], k:[B,head,dim_per_head,N]进行矩阵相乘后，得到[B,head,N,N]
+        # transpose和permute都是交换维度，但是transpose只能是两个
         attn = (q @ k.transpose(-2, -1)) * self.scale
+        # 之后进行归一化处理，对所有的维度进行一个归一化处理
         attn = attn.softmax(dim=-1)
+        # 进行drop层，随机神经元失活
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        # attn:[B,head,N,N],v:[B,head,dim_per_head,N]-->[B,head,N,dim_per_head]-->[B,N,head,dim_per_head]
+        # 注意得分再和v相乘，得到我们之前最终想要的b
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C) # 把最后这两个维度的信息拼接在一起
+        # 在经过一下全连接层
         x = self.proj(x)
+        # 再经过一个drop层
         x = self.proj_drop(x)
         return x
 
@@ -215,17 +233,25 @@ class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+        # 第一个MLP节点个数，是输入的4倍
         super().__init__()
+        # 层正则化
         self.norm1 = norm_layer(dim)
+        # 实例化Attention类，并且传递参数
         self.attn = Attention(dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+        # drop path比dropout效果要好，DropPath是将深度学习模型中的多分支结构随机失活的一种正则化策略。
+        # FractalNet: Ultra-Deep Neural Networks without Residuals(ICLR2017)
+        # 实例化DropPath，并且判断这drop_path值是否大于0，如果大于0就进行实例化，否则不进行
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        # 正则化
         self.norm2 = norm_layer(dim)
+        # MLP初始化
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x)))
+        x = x + self.drop_path(self.attn(self.norm1(x)))  # 这两个部分是分为了短链接
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
 
@@ -251,7 +277,7 @@ class VisionTransformer(nn.Module):
             in_chans (int): number of input channels
             num_classes (int): number of classes for classification head
             embed_dim (int): embedding dimension
-            depth (int): depth of transformer
+            depth (int): depth of transformer 就是transformer重复堆叠的个数
             num_heads (int): number of attention heads
             mlp_ratio (int): ratio of mlp hidden dim to embedding dim
             qkv_bias (bool): enable bias for qkv if True
@@ -267,14 +293,19 @@ class VisionTransformer(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
+        # 这里的num_tokens=1，有这个是为了兼容DeiT模型
         self.num_tokens = 2 if distilled else 1
+        # 这里的或运算，就是两个都可以要，如果第一个有那就用第一个，如果第一个没有，那就用后面的。也就是第一个为真，用第一个，否则就用第二个
+        # partial 代表可以固定一个参数
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
         act_layer = act_layer or nn.GELU
 
         self.patch_embed = embed_layer(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
-
+        # 构建一个可训练的参数
+        # nn.Parameter会自动被认为是module的可训练参数，
+        # nn.Parameter的对象的requires_grad属性的默认值是True，即是可被训练的，这与torth.Tensor对象的默认值相反
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.dist_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if distilled else None
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
