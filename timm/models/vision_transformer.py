@@ -14,7 +14,7 @@ DeiT model defs and weights from https://github.com/facebookresearch/deit,
 paper `DeiT: Data-efficient Image Transformers` - https://arxiv.org/abs/2012.12877
 
 Acknowledgments:
-* The paper authors for releasing code and weights, thanks!
+* The paper authors for releasing code and weights, thanks! vit的作者也承认这个代码和权重
 * I fixed my class token impl based on Phil Wang's https://github.com/lucidrains/vit-pytorch ... check it out
 for some einops/einsum fun
 * Simple transformer style inspired by Andrej Karpathy's https://github.com/karpathy/minGPT
@@ -41,6 +41,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _cfg(url='', **kwargs):
+    """ 定义一个字典，代表标准的模型，如果需要更改模型超参数只需要改变_cfg的传入的参数即可。"""
     return {
         'url': url,
         'num_classes': 1000, 'input_size': (3, 224, 224), 'pool_size': None,
@@ -50,9 +51,10 @@ def _cfg(url='', **kwargs):
         **kwargs
     }
 
-
+# 代表支持的所有模型，也定义成字典的形式
 default_cfgs = {
     # patch models (weights from official Google JAX impl)
+    # 默认输入图片大小是224，patch为16
     'vit_tiny_patch16_224': _cfg(
         url='https://storage.googleapis.com/vit_models/augreg/'
             'Ti_16-i21k-300ep-lr_0.001-aug_none-wd_0.03-do_0.0-sd_0.0--imagenet2012-steps_20k-lr_0.03-res_224.npz'),
@@ -128,7 +130,7 @@ default_cfgs = {
         url='https://storage.googleapis.com/vit_models/imagenet21k/ViT-H_14.npz',
         hf_hub='timm/vit_huge_patch14_224_in21k',
         num_classes=21843),
-
+    # 这又是一个改进的模型
     # SAM trained models (https://arxiv.org/abs/2106.01548)
     'vit_base_patch32_sam_224': _cfg(
         url='https://storage.googleapis.com/vit_models/sam/ViT-B_32.npz'),
@@ -136,6 +138,7 @@ default_cfgs = {
         url='https://storage.googleapis.com/vit_models/sam/ViT-B_16.npz'),
 
     # deit models (FB weights)
+    # 这个是新模型deit
     'deit_tiny_patch16_224': _cfg(
         url='https://dl.fbaipublicfiles.com/deit/deit_tiny_patch16_224-a1311bcf.pth',
         mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD),
@@ -176,18 +179,24 @@ default_cfgs = {
 
 
 class Attention(nn.Module):
+    """
+        dim 是token的维度，8个head，qkv向量的偏置，注意力的丢失，卷积层的丢失
+        """
     def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.):
         super().__init__()
-        self.num_heads = num_heads
+        self.num_heads = num_heads  # 每一个head的维度，传入的维度/多少个头
         head_dim = dim // num_heads
         self.scale = head_dim ** -0.5
 
+        # 使用一个全连接层，生成qkv，
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
+        # 我们传入的维度，[batch_size, num_patch + 1 ，total_embed_dim]  nub_patch =14*14=196, embed_dim=768(就是把一小块图像拉伸成一个向量的)
+        # num_patch 要加一，是为了一个输出结果。
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
@@ -318,6 +327,7 @@ class VisionTransformer(nn.Module):
     def load_pretrained(self, checkpoint_path, prefix=''):
         _load_weights(self, checkpoint_path, prefix)
 
+    # 允许保留与TorchScript 不兼容的代码，简单的意思就是如果加上这个装饰器，那么这里面的代码就分配给python解释器，默认是忽略
     @torch.jit.ignore
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'dist_token'}

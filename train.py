@@ -63,13 +63,14 @@ _logger = logging.getLogger('train')
 
 # The first arg parser parses out only the --config argument, this argument is used to
 # load a yaml file containing key-values that override the defaults for the main parser below
+# 第一个 arg 解析器仅解析 --config 参数，此参数用于加载包含键值的 yaml 文件，这些键值覆盖下面主解析器的默认值
 config_parser = parser = argparse.ArgumentParser(description='Training Config', add_help=False)
 parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
                     help='YAML config file specifying default arguments')
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-
+# metavar - 在 usage 说明中的参数名称，对于必选参数默认就是参数名称，对于可选参数默认是全大写的参数名称
 # Dataset / Model parameters
 parser.add_argument('data_dir', metavar='DIR',
                     help='path to dataset')
@@ -104,7 +105,7 @@ parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN
 parser.add_argument('--std', type=float, nargs='+', default=None, metavar='STD',
                     help='Override std deviation of of dataset')
 parser.add_argument('--interpolation', default='', type=str, metavar='NAME',
-                    help='Image resize interpolation type (overrides model)')
+                    help='Image resize interpolation type (overrides model)')  # 图像放大或者缩小使用内插法
 parser.add_argument('-b', '--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 32)')
 parser.add_argument('-vb', '--validation-batch-size-multiplier', type=int, default=1, metavar='N',
@@ -233,7 +234,7 @@ parser.add_argument('--split-bn', action='store_true',
 
 # Model Exponential Moving Average
 parser.add_argument('--model-ema', action='store_true', default=False,
-                    help='Enable tracking moving average of model weights')
+                    help='Enable tracking moving average of model weights')  # 启用跟踪模型权重的移动平均值
 parser.add_argument('--model-ema-force-cpu', action='store_true', default=False,
                     help='Force ema to be tracked on CPU, rank=0 node only. Disables EMA validation.')
 parser.add_argument('--model-ema-decay', type=float, default=0.9998,
@@ -307,7 +308,7 @@ def main():
             wandb.init(project=args.experiment, config=args)
         else: 
             _logger.warning("You've requested to log metrics to wandb but package not found. "
-                            "Metrics not being logged to wandb, try `pip install wandb`")
+                            "Metrics not being logged to wandb, try `pip install wandb`")  # 如果要用可视化权重，要按照wandb
              
     args.prefetcher = not args.no_prefetcher
     args.distributed = False

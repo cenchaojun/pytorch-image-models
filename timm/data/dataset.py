@@ -27,6 +27,7 @@ class ImageDataset(data.Dataset):
             load_bytes=False,
             transform=None,
     ):
+        # 判断parser是空的或者是字符串类型
         if parser is None or isinstance(parser, str):
             parser = create_parser(parser or '', root=root, class_map=class_map)
         self.parser = parser
@@ -37,10 +38,17 @@ class ImageDataset(data.Dataset):
     def __getitem__(self, index):
         img, target = self.parser[index]
         try:
+            # 如果self.load_bytes是true，那么执行img=img.read()，否则执行后面语句
+            # 这个是三目运算符号
+            # True_statements if expression else False_statements
+            # 运算规则是：先对逻辑表达式 expression 求值，如果逻辑表达式返回 True，则 执行并返回 True_statements 的值；
+            # 如果逻辑表达式返回 False，则执行并返回 False_statements 的值
             img = img.read() if self.load_bytes else Image.open(img).convert('RGB')
         except Exception as e:
+            # 这里使用try，防止有些图像读取不到。并把异常写入logger文件中，
             _logger.warning(f'Skipped sample (index {index}, file {self.parser.filename(index)}). {str(e)}')
             self._consecutive_errors += 1
+            # 如果小于50就正常返回有多少个？？？这个还没看懂，否则就报异常。
             if self._consecutive_errors < _ERROR_RETRY:
                 return self.__getitem__((index + 1) % len(self.parser))
             else:
@@ -49,6 +57,7 @@ class ImageDataset(data.Dataset):
         if self.transform is not None:
             img = self.transform(img)
         if target is None:
+            # 如果没有标签，那这个图像就视为“-1”，也就是当作背景。
             target = torch.tensor(-1, dtype=torch.long)
         return img, target
 
