@@ -12,9 +12,15 @@ The official jax code is released and available at https://github.com/google-res
 
 DeiT model defs and weights from https://github.com/facebookresearch/deit,
 paper `DeiT: Data-efficient Image Transformers` - https://arxiv.org/abs/2012.12877
+还有一个mmmlab团队写的一个mmclassification分类框架，专门做分类任务的，里面也有vit模型，
+但是最终我还是选择这个模型，
+1.这个框架里面的模型比较多，关于transformer改进也多，
+2.这个改进的难度比那个小一点，mmlab有一个mcvv这个包，比较难，
+3.papre作者官方承认这个pytorch-image-model中vit的模型。
 
 Acknowledgments:
 * The paper authors for releasing code and weights, thanks! vit的作者也承认这个代码和权重
+
 * I fixed my class token impl based on Phil Wang's https://github.com/lucidrains/vit-pytorch ... check it out
 for some einops/einsum fun
 * Simple transformer style inspired by Andrej Karpathy's https://github.com/karpathy/minGPT
@@ -311,7 +317,11 @@ class VisionTransformer(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_rate)
 
+        # 这里构建一个等差列表，让droppath的概率在递增
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        # pytorch顺序容器，把设计不同的层放在一，
+        # 里面使用列表生成式，每次经过一个for 循环都，增加一个block，把for，循环前面当成一个整体，
+        # nn.Sequential代表模型块列表,把这个模块重复叠加depth次
         self.blocks = nn.Sequential(*[
             Block(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, drop=drop_rate,
@@ -330,11 +340,12 @@ class VisionTransformer(nn.Module):
             self.pre_logits = nn.Identity()
 
         # Classifier head(s)
+        # 最后进行目标任务输出的分类
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
         self.head_dist = None
         if distilled:
             self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if num_classes > 0 else nn.Identity()
-
+        # 初始化权重
         self.init_weights(weight_init)
 
     def init_weights(self, mode=''):
@@ -376,21 +387,30 @@ class VisionTransformer(nn.Module):
             self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x):
+        # 第一步进行patch_embedding操作
+        # 输入的是B, C, H, W ，输出的是 B HW C
         x = self.patch_embed(x)
+        # expand（）函数的功能是用来扩展张量中某维数据的尺寸，它返回输入张量在某维扩展为更大尺寸后的张量
+        #  扩展张量不会分配新的内存，只是在存在的张量上创建一个新的视图
+        # 就在B维度上复制B份
         cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         if self.dist_token is None:
             x = torch.cat((cls_token, x), dim=1)
         else:
             x = torch.cat((cls_token, self.dist_token.expand(x.shape[0], -1, -1), x), dim=1)
+        # 下面要经过一个位置编码与越来的相加
         x = self.pos_drop(x + self.pos_embed)
+        # 开始进入重复堆叠的模块层
         x = self.blocks(x)
         x = self.norm(x)
         if self.dist_token is None:
+            # 返回第二个维度为0的数据，这个pre_logits不做任何处理
             return self.pre_logits(x[:, 0])
         else:
             return x[:, 0], x[:, 1]
 
     def forward(self, x):
+        # 之后进行前向传播，首先是forward_features
         x = self.forward_features(x)
         if self.head_dist is not None:
             x, x_dist = self.head(x[0]), self.head_dist(x[1])  # x must be a tuple
