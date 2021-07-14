@@ -412,6 +412,7 @@ class VisionTransformer(nn.Module):
     def forward(self, x):
         # 之后进行前向传播，首先是forward_features
         x = self.forward_features(x)
+        # 下面这个没有，所以不走
         if self.head_dist is not None:
             x, x_dist = self.head(x[0]), self.head_dist(x[1])  # x must be a tuple
             if self.training and not torch.jit.is_scripting():
@@ -420,6 +421,7 @@ class VisionTransformer(nn.Module):
             else:
                 return (x + x_dist) / 2
         else:
+            # 进入head层，就是最后一个全连接层
             x = self.head(x)
         return x
 
@@ -591,7 +593,9 @@ def _create_vision_transformer(variant, pretrained=False, default_cfg=None, **kw
     repr_size = kwargs.pop('representation_size', None)
     if repr_size is not None and num_classes != default_num_classes:
         # Remove representation layer if fine-tuning. This may not always be the desired action,
+        # 如果是微调的话，移除representation
         # but I feel better than doing nothing by default for fine-tuning. Perhaps a better interface?
+        # 作者感觉是不需要做任何处理的
         _logger.warning("Removing representation layer for fine-tuning.")
         repr_size = None
 
@@ -608,6 +612,28 @@ def _create_vision_transformer(variant, pretrained=False, default_cfg=None, **kw
 @register_model
 def vit_tiny_patch16_224(pretrained=False, **kwargs):
     """ ViT-Tiny (Vit-Ti/16)
+    根据不同的ViT模型，传入不同的参数
+    **kwargs则是将一个可变的关键字参数的字典传给函数实参，参数列表长度可以为0或为其他值,这是一个字典
+    Example:
+        def test_kwargs(first, *args, **kwargs):
+            print('Required argument: ', first)
+            print(type(kwargs))
+           for v in args:
+              print ('Optional argument (args): ', v)
+           for k, v in kwargs.items():
+              print ('Optional argument %s (kwargs): %s' % (k, v))
+
+        test_kwargs(1, 2, 3, 4, k1=5, k2=6)
+
+        OUT：
+            Required argument:  1
+            <class 'dict'>
+            Optional argument (args):  2
+            Optional argument (args):  3
+            Optional argument (args):  4
+            Optional argument k2 (kwargs): 6
+            Optional argument k1 (kwargs): 5
+
     """
     model_kwargs = dict(patch_size=16, embed_dim=192, depth=12, num_heads=3, **kwargs)
     model = _create_vision_transformer('vit_tiny_patch16_224', pretrained=pretrained, **model_kwargs)
