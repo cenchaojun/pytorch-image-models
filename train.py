@@ -60,6 +60,8 @@ except ImportError:
 
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
+# 由于实验室的服务器第一块GPU有点问题，所有这里强制使用第六块GPU。这样最起码先跑起来，方便调试代码，深入了解框架。
+os.environ['CUDA_VISIBLE_DEVICES'] = '6'
 
 # The first arg parser parses out only the --config argument, this argument is used to
 # load a yaml file containing key-values that override the defaults for the main parser below
@@ -72,7 +74,7 @@ parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 # metavar - 在 usage 说明中的参数名称，对于必选参数默认就是参数名称，对于可选参数默认是全大写的参数名称
 # Dataset / Model parameters
-parser.add_argument('data_dir', metavar='DIR',
+parser.add_argument('data_dir', metavar='DIR',default='/home/liye/public dataset/imagenet/',
                     help='path to dataset')
 parser.add_argument('--dataset', '-d', metavar='NAME', default='',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
@@ -314,7 +316,7 @@ def main():
     args.distributed = False
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
-    args.device = 'cuda:0'
+    args.device = 'cuda:7'
     args.world_size = 1
     args.rank = 0  # global rank
     if args.distributed:

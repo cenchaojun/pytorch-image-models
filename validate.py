@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """ ImageNet Validation Script
+#
 
 This is intended to be a lean and easily modifiable ImageNet validation script for evaluating pretrained
 models or training checkpoints against ImageNet or similarly organized image datasets. It prioritizes
@@ -23,6 +24,7 @@ from timm.models import create_model, apply_test_time_pool, load_checkpoint, is_
 from timm.data import create_dataset, create_loader, resolve_data_config, RealLabelsImagenet
 from timm.utils import accuracy, AverageMeter, natural_key, setup_default_logging, set_jit_legacy
 
+
 has_apex = False
 try:
     from apex import amp
@@ -36,7 +38,7 @@ try:
         has_native_amp = True
 except AttributeError:
     pass
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '6'
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('validate')
 
