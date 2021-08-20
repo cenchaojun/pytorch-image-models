@@ -14,6 +14,11 @@ NVIDIA CUDA specific speedups adopted from NVIDIA Apex examples
 
 Hacked together by / Copyright 2020 Ross Wightman (https://github.com/rwightman)
 """
+
+# /home/liye/publicdataset/coil_crop_train_val/ --model resnet18 --lr 0.6 --warmup-epochs 5 --epochs 240 --weight-decay 1e-4 --sched cosine -b 256 -j 8
+# --hflip
+# /data/cenzhaojun/dataset/AR50x40/ --model vgg16 --lr 0.01 --warmup-epochs 5 --hflip 0 --drop 0.5 --epochs 240 --weight-decay 1e-4 --sched cosine -b 256 -j 8
+# /data/cenzhaojun/dataset/256_ObjectCategories/ --model resnet50 --lr 0.6 --warmup-epochs 5 --hflip 0.5 --epochs 200 --weight-decay 1e-4 --sched cosine -b 256 -j 8
 import argparse
 import time
 import yaml
@@ -61,7 +66,7 @@ except ImportError:
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
 # 由于实验室的服务器第一块GPU有点问题，所有这里强制使用第六块GPU。这样最起码先跑起来，方便调试代码，深入了解框架。
-os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
 # The first arg parser parses out only the --config argument, this argument is used to
 # load a yaml file containing key-values that override the defaults for the main parser below
@@ -280,7 +285,7 @@ parser.add_argument('--use-multi-epochs-loader', action='store_true', default=Fa
                     help='use the multi-epochs-loader to save time at the beginning of every epoch')
 parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
-parser.add_argument('--log-wandb', action='store_true', default=False,
+parser.add_argument('--log-wandb', action='store_true', default=True,
                     help='log training and validation metrics to wandb')
 
 
@@ -310,7 +315,7 @@ def main():
             wandb.init(project=args.experiment, config=args)
         else: 
             _logger.warning("You've requested to log metrics to wandb but package not found. "
-                            "Metrics not being logged to wandb, try `pip install wandb`")  # 如果要用可视化权重，要按照wandb
+                            "Metrics not being logged to wandb, try `pip install wandb`")  # 如果要用可视化权重，要安装wandb
              
     args.prefetcher = not args.no_prefetcher
     args.distributed = False
