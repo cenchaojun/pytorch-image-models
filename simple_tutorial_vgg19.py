@@ -91,7 +91,7 @@ dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=256,
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 class_names = image_datasets['train'].classes
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 ######################################################################
 # Visualize a few images
@@ -191,7 +191,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model.state_dict(),'./best_resnet50.pth')
+                torch.save(model.state_dict(),'./best_vgg19.pth')
 
         print()
 
@@ -290,22 +290,24 @@ def visualize_model(model, num_images=6):
 # `here <https://pytorch.org/docs/notes/autograd.html#excluding-subgraphs-from-backward>`__.
 #
 
-model_conv = torchvision.models.resnet50(pretrained=True)
-print(model_conv)
+model_conv = torchvision.models.vgg19(pretrained=True)
+#
 # for param in model_conv.parameters():
 #     param.requires_grad = False
 
 # Parameters of newly constructed modules have requires_grad=True by default
-num_ftrs = model_conv.fc.in_features
-model_conv.fc = nn.Linear(num_ftrs, len(class_names))
-
+# num_ftrs = model_conv.fc.in_features
+# num_ftrs = model_conv.classifier[6]
+# model_conv.fc = nn.Linear(num_ftrs, len(class_names))
+# print(model_conv)
+model_conv.classifier._modules['6'] = nn.Linear(4096,256)
 model_conv = model_conv.to(device)
 
 criterion = nn.CrossEntropyLoss()
 
 # Observe that only parameters of final layer are being optimized as
 # opposed to before.
-optimizer_conv = optim.SGD(model_conv.parameters(), lr=0.001, momentum=0.9)
+optimizer_conv = optim.SGD(model_conv.parameters(), lr=0.01, momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)

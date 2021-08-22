@@ -19,6 +19,7 @@ Hacked together by / Copyright 2020 Ross Wightman (https://github.com/rwightman)
 # --hflip
 # /data/cenzhaojun/dataset/AR50x40/ --model vgg16 --lr 0.01 --warmup-epochs 5 --hflip 0 --drop 0.5 --epochs 240 --weight-decay 1e-4 --sched cosine -b 256 -j 8
 # /data/cenzhaojun/dataset/256_ObjectCategories/ --model resnet50 --lr 0.6 --warmup-epochs 5 --hflip 0.5 --epochs 200 --weight-decay 1e-4 --sched cosine -b 256 -j 8
+# /data/cenzhaojun/dataset/256_ObjectCategories/ --model vgg19 --lr 0.6 --warmup-epochs 5 --hflip 0.5 --epochs 200 --weight-decay 1e-4 --sched cosine -b 256 -j 8
 import argparse
 import time
 import yaml
