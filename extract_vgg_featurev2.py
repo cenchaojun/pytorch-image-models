@@ -45,14 +45,18 @@ if __name__ == '__main__':
             file_glob = os.path.join(path, filename)
             files_list.extend(glob.glob(file_glob))
 
-    print(files_list)
+    # print(files_list)
     vgg19_feature_extractor = models.vgg19(num_classes=256)
-    print( vgg19_feature_extractor)
+    # print( vgg19_feature_extractor)
     # resnet50_feature_extractor.fc = nn.Linear(2048, 1024)
     vgg19_feature_extractor.load_state_dict(torch.load('best_vgg19.pth', map_location='cuda:0'))
+    vgg19_feature_extractor.classifier._modules.pop('4')
+    vgg19_feature_extractor.classifier._modules.pop('5')
+    vgg19_feature_extractor.classifier._modules.pop('6')
     print(vgg19_feature_extractor)
-    vgg19_feature_extractor.classifier._modules['6'] = nn.Linear(4096, 4096)
-    torch.nn.init.eye_( vgg19_feature_extractor.classifier._modules['6'].weight)
+    #print(vgg19_feature_extractor)
+    #vgg19_feature_extractor.classifier._modules['6'] = nn.Linear(4096, 4096)
+    #torch.nn.init.eye_( vgg19_feature_extractor.classifier._modules['6'].weight)
     for param in  vgg19_feature_extractor.parameters():
         param.requires_grad = False
 
@@ -64,8 +68,8 @@ if __name__ == '__main__':
         class_name = file_name.split('_')[0]
         file_ = file_name.split('.')[0]
         fx_path = os.path.join(features_dir, file_name + '.txt')
-        print(fx_path)
-        print(vgg19_feature_extractor)
+        # print(fx_path)
+        # print(vgg19_feature_extractor)
         try:
             y = extractor(x_path, fx_path,  vgg19_feature_extractor, use_gpu).tolist()[0]
             y.insert(0,file_name)
@@ -75,4 +79,4 @@ if __name__ == '__main__':
         except Exception:
             print('go !')
     df = pd.DataFrame(total_feature)
-    df.to_csv('feature_vgg19_4096v2.csv',index=False)
+    df.to_csv('feature_vgg19_4096_20210903.csv',index=False)

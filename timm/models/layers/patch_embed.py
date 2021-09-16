@@ -6,10 +6,10 @@ Based on the impl in https://github.com/google-research/vision_transformer
 
 Hacked together by / Copyright 2020 Ross Wightman
 """
-
+import torch
 from torch import nn as nn
 
-from .helpers import to_2tuple
+from helpers import to_2tuple
 
 
 class PatchEmbed(nn.Module):
@@ -24,9 +24,9 @@ class PatchEmbed(nn.Module):
         self.patch_size = patch_size
         self.grid_size = (img_size[0] // patch_size[0], img_size[1] // patch_size[1]) # 这个就是图像一行有多少个，网格的大小224/16=14
         self.num_patches = self.grid_size[0] * self.grid_size[1]  # 一张图像总共有多少个的小块，14*14=196个
-        self.flatten = flatten
+        self.flatten = flatten # bool值
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)  # 这个就是用了2维的卷积进行
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)  # 这个就是用了2维的卷积进行，这个就是参数
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity() # 如果传入norm_layer，就对其进行归一化，如果不传入，就不进行任何处理
 
     def forward(self, x):
@@ -45,3 +45,10 @@ class PatchEmbed(nn.Module):
         x = self.norm(x)
         # 最终我们得到B HW C这个tensor
         return x
+if __name__ == '__main__':
+    x = torch.rand([1,3,224,224])
+    model = PatchEmbed()
+    y = model(x)
+    print(y)
+    print(y.shape)
+    print(x)

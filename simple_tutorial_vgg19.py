@@ -301,6 +301,8 @@ model_conv = torchvision.models.vgg19(pretrained=True)
 # model_conv.fc = nn.Linear(num_ftrs, len(class_names))
 # print(model_conv)
 model_conv.classifier._modules['6'] = nn.Linear(4096,256)
+
+print(model_conv.classifier.__module__)
 model_conv = model_conv.to(device)
 
 criterion = nn.CrossEntropyLoss()
